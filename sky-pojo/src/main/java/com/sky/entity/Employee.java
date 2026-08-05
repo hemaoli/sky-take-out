@@ -42,4 +42,6 @@ public class Employee implements Serializable {
 
     private Long updateUser;
 
+    public void getStatus(Integer enable) {
+    }
 }
