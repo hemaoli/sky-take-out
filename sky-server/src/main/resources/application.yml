@@ -2,6 +2,12 @@ server:
   port: 8080
 
 spring:
+  redis:
+    host: ${sky.redis.host}
+    port: ${sky.redis.port}
+    password:
+    database: ${sky.redis.database}
+
   profiles:
     active: dev
   main:

@@ -156,5 +156,15 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
 
     }
 
+    /**
+     * 根据分类id查询菜品列表
+     * @param categoryId
+     * @return
+     */
+    @Override
+    public List<Dish> list(Long categoryId) {
+        return dishMapper.list(categoryId);
+    }
+
 
 }
