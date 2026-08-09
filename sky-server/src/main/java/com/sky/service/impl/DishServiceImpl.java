@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -163,7 +164,31 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
      */
     @Override
     public List<Dish> list(Long categoryId) {
-        return dishMapper.list(categoryId);
+        return dishMapper.listByCategoryId(categoryId);
+    }
+
+    /**
+     * 条件查询菜品和对应的口味数据(用户端商品浏览使用)
+     * @param dish
+     * @return
+     */
+    @Override
+    public List<DishVO> listWithFlavor(Dish dish) {
+        List<Dish> dishList = dishMapper.list(dish);
+
+        List<DishVO> dishVOList = new ArrayList<>();
+
+        for (Dish d : dishList) {
+            DishVO dishVO = new DishVO();
+            BeanUtils.copyProperties(d, dishVO);
+
+            //根据菜品id查询对应的口味
+            List<DishFlavor> flavors = dishFlavorMapper.getByDishId(d.getId());
+            dishVO.setFlavors(flavors);
+            dishVOList.add(dishVO);
+        }
+
+        return dishVOList;
     }
 
 
