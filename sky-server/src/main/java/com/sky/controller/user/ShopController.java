@@ -28,8 +28,11 @@ public class ShopController {
     @GetMapping("/status")
     @ApiOperation("获取店铺状态")
     public Result getStatus() {
-
         Integer shopStatus = (Integer) redisTemplate.opsForValue().get(key);
+        //Redis中没有店铺状态时,默认打烊,避免空指针
+        if (shopStatus == null) {
+            shopStatus = 0;
+        }
         log.info("获取店铺状态：{}", shopStatus == 1 ? "营业中" : "打烊中");
 
         return Result.success(shopStatus);
