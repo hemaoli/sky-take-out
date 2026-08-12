@@ -15,6 +15,7 @@ import com.sky.mapper.SetmealDishMapper;
 import com.sky.result.PageResult;
 import com.sky.result.Result;
 import com.sky.service.DishService;
+import com.sky.utils.RedisTtlUtil;
 import com.sky.vo.DishVO;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
@@ -148,11 +149,6 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
     public void updateWithFlavor(DishDTO dishDTO) {
         //先查原菜品,拿到旧分类,精确删旧分类缓存
         Dish oldDish = dishMapper.getById(dishDTO.getId());
-        if (oldDish != null) {
-            cleanCache(oldDish.getCategoryId());
-        }
-        //分类可能发生变化,同时清理新分类的缓存
-        cleanCache(dishDTO.getCategoryId());
 
         Dish dish = new Dish();
         BeanUtils.copyProperties(dishDTO, dish);
@@ -171,6 +167,11 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
                     dishFlavor.setDishId(dishDTO.getId()));
             dishFlavorMapper.insertBatch(flavors);
         }
+        if (oldDish != null) {
+            cleanCache(oldDish.getCategoryId());
+        }
+        //分类可能发生变化,同时清理新分类的缓存
+        cleanCache(dishDTO.getCategoryId());
 
 
     }
@@ -214,9 +215,11 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
 
         //4.写入缓存:空列表防穿透用短TTL,正常数据用长TTL
         if (dishVOList == null || dishVOList.size() == 0) {
+            //空列表防穿透:固定5分钟,短TTL影响小
             redisTemplate.opsForValue().set(key, dishVOList, 5, TimeUnit.MINUTES);
         } else {
-            redisTemplate.opsForValue().set(key, dishVOList, 60*24, TimeUnit.MINUTES);
+            //随机1~24小时,避免所有缓存同时过期造成雪崩
+            redisTemplate.opsForValue().set(key, dishVOList, RedisTtlUtil.getRandomHour() * 60L, TimeUnit.MINUTES);
         }
         return dishVOList;
     }
