@@ -10,10 +10,12 @@ import com.sky.exception.AddressBookBusinessException;
 import com.sky.exception.OrderBusinessException;
 import com.sky.exception.ShoppingCartBusinessException;
 import com.sky.mapper.*;
+import com.sky.properties.WeChatProperties;
 import com.sky.service.OrderService;
 import com.sky.utils.WeChatPayUtil;
 import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderSubmitVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,8 +24,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.File;
 
 @Service
+@Slf4j
 public class OrderServiceImpl implements OrderService {
     @Autowired
     private OrderMapper orderMapper;
@@ -37,6 +41,8 @@ public class OrderServiceImpl implements OrderService {
     private UserMapper userMapper;
     @Autowired
     private WeChatPayUtil weChatPayUtil;
+    @Autowired
+    private WeChatProperties weChatProperties;
 
     /**
      * 用户提交订单
@@ -103,6 +109,22 @@ public class OrderServiceImpl implements OrderService {
      * @return
      */
     public OrderPaymentVO payment(OrdersPaymentDTO ordersPaymentDTO) throws Exception {
+        //================= 假支付:商户私钥文件不存在时 =================
+        File privateKeyFile = new File(weChatProperties.getPrivateKeyFilePath());
+        if (!privateKeyFile.exists()) {
+            log.info("未检测到商户私钥文件,走假支付:{}", ordersPaymentDTO.getOrderNumber());
+            //1.直接把订单标记为已支付、待接单,后续接单/派送/完成功能才能继续开发测试
+            paySuccess(ordersPaymentDTO.getOrderNumber());
+            //2.返回假支付参数,paySign用MOCK标记,前端据此跳过wx.requestPayment
+            OrderPaymentVO mockVo = new OrderPaymentVO();
+            mockVo.setNonceStr("mock");
+            mockVo.setTimeStamp(String.valueOf(System.currentTimeMillis() / 1000));
+            mockVo.setSignType("RSA");
+            mockVo.setPackageStr("mock");
+            mockVo.setPaySign("MOCK");
+            return mockVo;
+        }
+        //================= 以下是真实支付逻辑 =================
         // 当前登录用户id
         Long userId = BaseContext.getCurrentId();
         User user = userMapper.getById(userId);
