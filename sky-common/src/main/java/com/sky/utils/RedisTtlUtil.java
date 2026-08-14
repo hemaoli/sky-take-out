@@ -8,11 +8,11 @@ import java.util.concurrent.ThreadLocalRandom;
 public class RedisTtlUtil {
 
     /**
-     * 生成1~24的随机整数
-     * @return 1~24
+     * 生成55~65分钟的随机整数
+     * @return 55-65
      */
-    public static int getRandomHour() {
-        return ThreadLocalRandom.current().nextInt(1, 24 + 1);
+    public static int getRandomMinute() {
+        return ThreadLocalRandom.current().nextInt(55, 66);
     }
 
 }

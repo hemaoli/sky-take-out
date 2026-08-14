@@ -57,6 +57,10 @@ public class DishServiceImpl implements DishService {
         //向菜品表插入1条数据
         Dish dish = new Dish();
         BeanUtils.copyProperties(dishDTO, dish);
+        //前端未传库存时,给默认库存0,避免插入null违反NOT NULL约束
+        if (dish.getStock() == null) {
+            dish.setStock(0);
+        }
         dishMapper.insert(  dish);
         //获取insert语句生成的主键值
         Long dishId = dish.getId();
@@ -218,8 +222,8 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
             //空列表防穿透:固定5分钟,短TTL影响小
             redisTemplate.opsForValue().set(key, dishVOList, 5, TimeUnit.MINUTES);
         } else {
-            //随机1~24小时,避免所有缓存同时过期造成雪崩
-            redisTemplate.opsForValue().set(key, dishVOList, RedisTtlUtil.getRandomHour() * 60L, TimeUnit.MINUTES);
+            //随机55~65分钟,避免所有缓存同时过期造成雪崩
+            redisTemplate.opsForValue().set(key, dishVOList, RedisTtlUtil.getRandomMinute(), TimeUnit.MINUTES);
         }
         return dishVOList;
     }

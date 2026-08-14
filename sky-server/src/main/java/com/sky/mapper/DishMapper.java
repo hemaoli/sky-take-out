@@ -12,6 +12,7 @@ import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface DishMapper {
@@ -78,6 +79,15 @@ public interface DishMapper {
      */
     @Select("select * from dish where category_id = #{categoryId} and status = 1")
     List<Dish> listByCategoryId(Long categoryId);
+
+    /**
+     * 扣减菜品库存:库存足够才扣,防止并发超卖
+     * @param id 菜品id
+     * @param num 扣减数量
+     * @return 受影响行数,0表示库存不足
+     */
+    @Update("update dish set stock = stock - #{num} where id = #{id} and stock >= #{num}")
+    int deductStock(@Param("id") Long id, @Param("num") Integer num);
 
     /**
      * 动态条件查询菜品(用户端商品浏览使用)

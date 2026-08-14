@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -43,12 +44,15 @@ public class OrderServiceImpl implements OrderService {
     private WeChatPayUtil weChatPayUtil;
     @Autowired
     private WeChatProperties weChatProperties;
+    @Autowired
+    private DishMapper dishMapper;
 
     /**
      * 用户提交订单
      * @param ordersSubmitDTO
      * @return
      */
+    @Transactional
     public OrderSubmitVO submitOrder(OrdersSubmitDTO ordersSubmitDTO) {
         //处理业务异常(地址id为空  购物车为空)
         AddressBook addressBook = addressBookMapper.getById(ordersSubmitDTO.getAddressBookId());
@@ -86,6 +90,16 @@ public class OrderServiceImpl implements OrderService {
 
         }
         orderDetailMapper.insertBatch(orderDetailList);
+
+        //扣减菜品库存,库存不足则下单失败(整个事务回滚)
+        for (OrderDetail detail : orderDetailList) {
+            if (detail.getDishId() != null) {
+                int rows = dishMapper.deductStock(detail.getDishId(), detail.getNumber());
+                if (rows == 0) {
+                    throw new OrderBusinessException("菜品[" + detail.getName() + "]库存不足");
+                }
+            }
+        }
 
         //清空购物车
         shoppingCartMapper.clean(userId);

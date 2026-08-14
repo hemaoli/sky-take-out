@@ -66,7 +66,7 @@ public class RedisConfiguration {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(createJsonSerializer()))
                 //兜底过期时间,实际写入时会被随机值覆盖
-                .entryTtl(Duration.ofHours(24));
+                .entryTtl(Duration.ofHours(1));
 
         //默认写入器,作为内部委托
         RedisCacheWriter delegate = RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory);
@@ -74,7 +74,7 @@ public class RedisConfiguration {
         RedisCacheWriter cacheWriter = new RedisCacheWriter() {
             @Override
             public void put(String name, byte[] key, byte[] value, Duration ttl) {
-                Duration randomTtl = Duration.ofHours(RedisTtlUtil.getRandomHour());
+                Duration randomTtl = Duration.ofMinutes(RedisTtlUtil.getRandomMinute());
                 delegate.put(name, key, value, randomTtl);
             }
 
