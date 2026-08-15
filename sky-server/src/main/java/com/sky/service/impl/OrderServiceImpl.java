@@ -68,6 +68,26 @@ public class OrderServiceImpl implements OrderService {
         if(shoppingCartList == null || shoppingCartList.size() == 0) {
             throw new ShoppingCartBusinessException(MessageConstant.SHOPPING_CART_IS_NULL);
         }
+        List<OrderDetail> orderDetailList = new ArrayList<>();
+        //从购物车构造订单明细(此时还没有订单id)
+        for (ShoppingCart cart : shoppingCartList){
+            OrderDetail orderDetail = new OrderDetail();//创建订单明细对象
+            BeanUtils.copyProperties(cart, orderDetail);
+            orderDetailList.add(orderDetail);
+
+
+        }
+        
+
+        //扣减菜品库存,库存不足则下单失败(整个事务回滚)
+        for (OrderDetail detail : orderDetailList) {
+            if (detail.getDishId() != null) {
+                int rows = dishMapper.deductStock(detail.getDishId(), detail.getNumber());
+                if (rows == 0) {
+                    throw new OrderBusinessException("菜品[" + detail.getName() + "]库存不足");
+                }
+            }
+        }
         //向订单表中插入一条数据
         Orders orders = new Orders();
         BeanUtils.copyProperties(ordersSubmitDTO, orders);
@@ -79,27 +99,11 @@ public class OrderServiceImpl implements OrderService {
         orders.setUserId(userId);
         orderMapper.insert(orders);
 
-        List<OrderDetail> orderDetailList = new ArrayList<>();
-        //向订单明细表中插入多条数据
-        for (ShoppingCart cart : shoppingCartList){
-            OrderDetail orderDetail = new OrderDetail();//创建订单明细对象
-            BeanUtils.copyProperties(cart, orderDetail);
-            orderDetail.setOrderId(orders.getId());//设置订单id
-            orderDetailList.add(orderDetail);
-
-
+        //订单插入成功后再给明细设置订单id,并批量插入
+        for (OrderDetail orderDetail : orderDetailList){
+            orderDetail.setOrderId(orders.getId());
         }
         orderDetailMapper.insertBatch(orderDetailList);
-
-        //扣减菜品库存,库存不足则下单失败(整个事务回滚)
-        for (OrderDetail detail : orderDetailList) {
-            if (detail.getDishId() != null) {
-                int rows = dishMapper.deductStock(detail.getDishId(), detail.getNumber());
-                if (rows == 0) {
-                    throw new OrderBusinessException("菜品[" + detail.getName() + "]库存不足");
-                }
-            }
-        }
 
         //清空购物车
         shoppingCartMapper.clean(userId);
