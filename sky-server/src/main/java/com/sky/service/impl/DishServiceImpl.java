@@ -30,6 +30,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
+import java.util.Collections;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 @Service
 @Slf4j
@@ -200,34 +203,67 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
     public List<DishVO> listWithFlavor(Dish dish) {
         //1.构造缓存key,查缓存
         String key = "dish:list:" + dish.getCategoryId();
-        List<DishVO> list = (List<DishVO>) redisTemplate.opsForValue().get(key);
-        if (list != null) {
-            //2.缓存命中(包括空列表),直接返回
-            return list;
-        }
+        //互斥锁的key
+        String lockkey = "dish:list:lock:" + dish.getCategoryId();
 
-        //3.缓存未命中,查数据库
-        List<Dish> dishList = dishMapper.list(dish);
-        List<DishVO> dishVOList = new ArrayList<>();
-        for (Dish d : dishList) {
-            DishVO dishVO = new DishVO();
-            BeanUtils.copyProperties(d, dishVO);
-            List<DishFlavor> flavors = dishFlavorMapper.getByDishId(d.getId());
-            dishVO.setFlavors(flavors);
-            dishVOList.add(dishVO);
-        }
+        while (true) {
+            List<DishVO> list = (List<DishVO>) redisTemplate.opsForValue().get(key);
+            if (list != null) {
+                //2.缓存命中(包括空列表),直接返回
+                return list;
+            }
+            //尝试获取锁
+            String lockValue = UUID.randomUUID().toString();
+            Boolean isLocked = redisTemplate.opsForValue().setIfAbsent(lockkey, lockValue, 30, TimeUnit.SECONDS);
+            if (isLocked) {
+                try {
+                    //抢到锁后先查缓存
+                    list = (List<DishVO>) redisTemplate.opsForValue().get(key);
+                    if (list != null) {
+                        return list;
+                    }
 
-        //4.写入缓存:空列表防穿透用短TTL,正常数据用长TTL
-        if (dishVOList == null || dishVOList.size() == 0) {
-            //空列表防穿透:固定5分钟,短TTL影响小
-            redisTemplate.opsForValue().set(key, dishVOList, 5, TimeUnit.MINUTES);
-        } else {
-            //随机55~65分钟,避免所有缓存同时过期造成雪崩
-            redisTemplate.opsForValue().set(key, dishVOList, RedisTtlUtil.getRandomMinute(), TimeUnit.MINUTES);
+                //4.缓存未命中,查数据库
+                List<Dish> dishList = dishMapper.list(dish);
+                List<DishVO> dishVOList = new ArrayList<>();
+                for (Dish d : dishList) {
+                    DishVO dishVO = new DishVO();
+                    BeanUtils.copyProperties(d, dishVO);
+                    List<DishFlavor> flavors = dishFlavorMapper.getByDishId(d.getId());
+                    dishVO.setFlavors(flavors);
+                    dishVOList.add(dishVO);
+                }
+                //5.写入缓存
+                    if (dishVOList != null && dishVOList.size() > 0) {
+                        redisTemplate.opsForValue().set(key, dishVOList, RedisTtlUtil.getRandomMinute(), TimeUnit.MINUTES);
+                    }else {
+                        redisTemplate.opsForValue().set(key, Collections.emptyList(), 5, TimeUnit.MINUTES);
+                    }
+                    return dishVOList;
+                }finally {
+                    //释放锁:只有锁value还是自己的才删除,防止误删别人的锁
+                    releaseLock(lockkey, lockValue);
+                }
+            }else {
+                //等待重试
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    //恢复中断状态
+                    Thread.currentThread().interrupt();
+                }
+            }
+
         }
-        return dishVOList;
     }
-
+    /**
+     * 释放锁:只有锁的value还是自己的才删除(防止误删别人的锁)
+     */
+    private void releaseLock(String lockKey, String lockValue) {
+        String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+        DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>(script, Long.class);
+        redisTemplate.execute(redisScript, Collections.singletonList(lockKey), lockValue);
+    }
     /**
      * 菜品起售停售
      * @param status
