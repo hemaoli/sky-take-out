@@ -206,7 +206,9 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
         //互斥锁的key
         String lockkey = "dish:list:lock:" + dish.getCategoryId();
 
-        while (true) {
+        int maxRetry = 30;//最大尝试数
+        int retryCount = 0;//当前尝试数
+        while (retryCount<maxRetry) {
             List<DishVO> list = (List<DishVO>) redisTemplate.opsForValue().get(key);
             if (list != null) {
                 //2.缓存命中(包括空列表),直接返回
@@ -214,8 +216,8 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
             }
             //尝试获取锁
             String lockValue = UUID.randomUUID().toString();
-            Boolean isLocked = redisTemplate.opsForValue().setIfAbsent(lockkey, lockValue, 30, TimeUnit.SECONDS);
-            if (isLocked) {
+            Boolean isLocked = redisTemplate.opsForValue().setIfAbsent(lockkey, lockValue, 5, TimeUnit.SECONDS);
+            if ( (Boolean.TRUE.equals(isLocked))) {
                 try {
                     //抢到锁后先查缓存
                     list = (List<DishVO>) redisTemplate.opsForValue().get(key);
@@ -247,6 +249,7 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
             }else {
                 //等待重试
                 try {
+                    retryCount++;
                     Thread.sleep(50);
                 } catch (InterruptedException e) {
                     //恢复中断状态
@@ -255,6 +258,16 @@ List<Long> setmealIds = setmealDishMapper.getSetmealIdsByDishIds(ids);
             }
 
         }
+        List<Dish> dishList = dishMapper.list(dish);
+        List<DishVO> dishVOList = new ArrayList<>();
+        for (Dish d : dishList) {
+            DishVO dishVO = new DishVO();
+            BeanUtils.copyProperties(d, dishVO);
+            List<DishFlavor> flavors = dishFlavorMapper.getByDishId(d.getId());
+            dishVO.setFlavors(flavors);
+            dishVOList.add(dishVO);
+        }
+        return dishVOList;
     }
     /**
      * 释放锁:只有锁的value还是自己的才删除(防止误删别人的锁)
