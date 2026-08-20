@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
+import java.io.IOException;
 
 /**
  * 数据统计相关
@@ -74,5 +76,15 @@ public class ReportController {
             @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end){
         log.info("销量排名前10，开始时间：{}，结束时间：{}", begin, end);
         return Result.success(reportService.getSalesTop10(begin, end));
+    }
+    /**
+     * 导出运营数据excle表
+     */
+
+    @GetMapping("/export")
+    @ApiOperation("导出运营数据excle表")
+    public void export(HttpServletResponse response) throws IOException {
+
+        reportService.exportBusinessData(response);
     }
 }

@@ -18,6 +18,18 @@ spring:
       url: jdbc:mysql://${sky.datasource.host}:${sky.datasource.port}/${sky.datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
       username: ${sky.datasource.username}
       password: ${sky.datasource.password}
+      #连接池最大连接数(200并发压测用)
+      max-active: 50
+      #获取连接最大等待时间(毫秒)
+      max-wait: 10000
+      #获取连接时校验连接是否有效
+      test-on-borrow: true
+      #空闲连接定期校验
+      test-while-idle: true
+      #校验SQL
+      validation-query: SELECT 1
+      #连接保活,防止被MySQL断开
+      keep-alive: true
 
 mybatis:
   #mapper配置文件
