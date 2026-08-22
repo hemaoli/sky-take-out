@@ -1,6 +1,7 @@
 # 苍穹外卖(sky-take-out)
 
 一个基于 Spring Boot + MyBatis + Redis 的外卖点餐系统,支持微信小程序用户端点餐与管理端运营管理,并对缓存和库存做了完整的并发防护。
+(线上地址：https://hmlcode.top 「演示账号：demo / 密码:123456」)
 
 ## 架构图
 
