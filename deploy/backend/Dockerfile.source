@@ -1,0 +1,20 @@
+# 部署方式二（不推荐，仅当服务器网速快时使用）：
+# 将整个 sky-take-out 源码目录复制为 backend/source/，
+# 并修改 docker-compose.yml 中 backend 的 build 为：
+#   dockerfile: Dockerfile.source
+# 然后在服务器上执行 docker compose build backend 完成编译。
+FROM maven:3.8-eclipse-temurin-8 AS build
+WORKDIR /build
+COPY source/ .
+RUN mvn clean package -DskipTests
+
+FROM eclipse-temurin:8-jre
+
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+WORKDIR /app
+COPY --from=build /build/sky-server/target/sky-server-1.0-SNAPSHOT.jar app.jar
+
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
