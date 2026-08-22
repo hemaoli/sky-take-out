@@ -85,6 +85,9 @@ graph LR
 3. 启动后端:运行 `com.sky.SkyApplication`(IDEA 或 `mvn spring-boot:run`)
 4. 管理端:启动 Nginx,浏览器访问 `http://localhost`,接口文档见 `http://localhost:8080/doc.html`
 5. 用户端:微信开发者工具导入小程序项目,使用自己的 AppID 或测试号
+## 操作演示
+
+![苍穹外卖操作演示](deploy/docs/demo.gif)
 
 ## 说明
 
